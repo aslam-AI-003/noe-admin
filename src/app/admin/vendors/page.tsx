@@ -30,8 +30,22 @@ export default function AdminVendorsPage() {
   useEffect(() => {
     setMounted(true);
     const unsub = vendorService.onAll((vendors) => {
-      console.log('🔄 Firestore vendors synced:', vendors.length);
-      setFirestoreVendors(vendors);
+      console.log('🔄 Firestore vendors synced:', vendors.length, vendors.map(v => ({ id: v.id, status: v.status, onboardingStatus: (v as any).onboardingStatus, shopName: v.shopName })));
+      // Normalize: if vendor has onboardingStatus='pending_approval' but no status field, map it
+      const normalized = vendors.map(v => {
+        const vendor = { ...v };
+        if (!vendor.status && (v as any).onboardingStatus === 'pending_approval') {
+          vendor.status = 'pending';
+        }
+        if (!vendor.status && (v as any).onboardingStatus === 'otp_verified') {
+          vendor.status = 'pending'; // still in setup — show as pending so admin can see all
+        }
+        // Map ownerName from phone if missing
+        if (!vendor.ownerName) vendor.ownerName = vendor.phone || 'Unknown';
+        if (!vendor.shopName) vendor.shopName = (v as any).shopName || 'Unnamed Shop';
+        return vendor;
+      });
+      setFirestoreVendors(normalized);
     });
     return () => unsub();
   }, []);

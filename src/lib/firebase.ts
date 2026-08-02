@@ -40,6 +40,12 @@ if (hasValidConfig) {
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
+  console.log('🔥 Firebase initialized! Project:', firebaseConfig.projectId);
+} else {
+  console.error('❌ Firebase NOT initialized! Missing config:', { 
+    hasApiKey: !!firebaseConfig.apiKey, 
+    hasProjectId: !!firebaseConfig.projectId 
+  });
 }
 
 export { auth, db, storage };
