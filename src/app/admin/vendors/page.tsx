@@ -31,10 +31,12 @@ export default function AdminVendorsPage() {
     setMounted(true);
     const unsub = vendorService.onAll((vendors) => {
       console.log('🔄 Firestore vendors synced:', vendors.length, vendors.map(v => ({ id: v.id, status: v.status, onboardingStatus: (v as any).onboardingStatus, shopName: v.shopName })));
-      // Normalize: if vendor has onboardingStatus='pending_approval' but no status field, map it
+      // Normalize: sync status from onboardingStatus for compatibility
       const normalized = vendors.map(v => {
         const vendor = { ...v };
-        if (!vendor.status && (v as any).onboardingStatus === 'pending_approval') {
+        // If vendor re-submitted after rejection, onboardingStatus will be 'pending_approval'
+        // but status might still be 'rejected' from before — fix this
+        if ((v as any).onboardingStatus === 'pending_approval' && vendor.status !== 'approved') {
           vendor.status = 'pending';
         }
         if (!vendor.status && (v as any).onboardingStatus === 'otp_verified') {
