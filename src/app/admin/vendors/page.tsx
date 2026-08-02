@@ -318,6 +318,31 @@ export default function AdminVendorsPage() {
               ))}
             </div>
 
+            {/* Verification Checklist — Admin can see what's complete/missing */}
+            <div className="space-y-2.5 mb-4 p-3 surface rounded-xl">
+              <p className="text-[10px] font-bold text-faint uppercase tracking-wider">🔍 Verification Checklist</p>
+              {[
+                { label: 'Shop Photo', ok: !!(selectedVendor as any).shopPhotoUrl },
+                { label: 'Shop Name', ok: !!selectedVendor.shopName && selectedVendor.shopName.length >= 2 },
+                { label: 'Address', ok: !!(selectedVendor as any).address },
+                { label: 'City & Pincode', ok: !!(selectedVendor as any).city && !!(selectedVendor as any).pincode },
+                { label: 'Bank/UPI Details', ok: !!(selectedVendor as any).upiId || !!(selectedVendor as any).accountNumber },
+                { label: 'Account Holder Name', ok: !!(selectedVendor as any).accountHolderName },
+                { label: 'Aadhaar Uploaded', ok: !!(selectedVendor as any).aadhaarUrl },
+                { label: 'Bank Proof Uploaded', ok: !!(selectedVendor as any).bankDocUrl },
+                { label: 'FSSAI Number', ok: !!(selectedVendor as any).fssaiNumber },
+                { label: 'Menu Items (5+)', ok: ((selectedVendor as any).menuItemCount || 0) >= 5 },
+                { label: 'Operating Hours Set', ok: !!(selectedVendor as any).operatingHours },
+              ].map(({ label, ok }) => (
+                <div key={label} className="flex items-center justify-between py-0.5">
+                  <span className="text-[10px] text-faint">{label}</span>
+                  <span className={`text-xs font-bold ${ok ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {ok ? '✅' : '❌ Missing'}
+                  </span>
+                </div>
+              ))}
+            </div>
+
             {/* Status Info */}
             <div className="space-y-2.5 mb-4 p-3 surface rounded-xl">
               <p className="text-[10px] font-bold text-faint uppercase tracking-wider">📋 Status</p>
@@ -328,6 +353,10 @@ export default function AdminVendorsPage() {
               <div className="flex items-center justify-between py-1">
                 <span className="text-[10px] text-faint">Onboarding Step</span>
                 <span className="text-xs font-bold text-body">{(selectedVendor as any).onboardingStep || 'N/A'}</span>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-[10px] text-faint">Submitted At</span>
+                <span className="text-xs font-bold text-body">{(selectedVendor as any).submittedAt ? new Date((selectedVendor as any).submittedAt?.seconds ? (selectedVendor as any).submittedAt.seconds * 1000 : (selectedVendor as any).submittedAt).toLocaleString('en-IN') : 'N/A'}</span>
               </div>
             </div>
 
