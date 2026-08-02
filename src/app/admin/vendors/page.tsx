@@ -223,15 +223,39 @@ export default function AdminVendorsPage() {
         )}
       </div>
 
-      {/* Reject Modal */}
+      {/* Reject Modal — With proper message template */}
       {showRejectModal && (
         <div className="modal-overlay" onClick={() => setShowRejectModal(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full mx-auto mb-4 bg-[var(--card-border)]" />
-            <h2 className="font-black text-body text-lg mb-3">Reject Registration</h2>
+            <h2 className="font-black text-body text-lg mb-2">Reject Registration</h2>
+            <p className="text-xs text-muted mb-4">Vendor will be notified to fix issues and re-submit.</p>
+            
+            {/* Quick reason buttons */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {[
+                'Missing proper documents',
+                'Bank proof not uploaded',
+                'Aadhaar not clear/readable',
+                'Shop photo looks fake',
+                'Incomplete bank details',
+                'FSSAI required for food business',
+              ].map(reason => (
+                <button key={reason} onClick={() => setRejectReason(reason)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                    rejectReason === reason ? 'bg-red-500/15 border-red-500/40 text-red-600' : 'border-subtle text-muted hover:border-red-500/20'
+                  }`}>
+                  {reason}
+                </button>
+              ))}
+            </div>
+
             <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-              placeholder="Enter reason for rejection..."
-              className="input-glass w-full resize-none mb-4" rows={3} />
+              placeholder="Enter detailed rejection reason..."
+              className="input-glass w-full resize-none mb-2" rows={3} />
+            <p className="text-[10px] text-faint mb-4">
+              ⚠️ Message sent to vendor: "Your registration was rejected. Reason: {rejectReason || '...'} — Please fix and re-submit with proper documents."
+            </p>
             <div className="flex gap-3">
               <button onClick={() => setShowRejectModal(null)} className="btn-secondary flex-1 py-3">Cancel</button>
               <button onClick={() => handleReject(showRejectModal)}
@@ -318,10 +342,9 @@ export default function AdminVendorsPage() {
               ))}
             </div>
 
-            {/* Verification Checklist — Admin can see what's complete/missing */}
-            <div className="space-y-2.5 mb-4 p-3 surface rounded-xl">
-              <p className="text-[10px] font-bold text-faint uppercase tracking-wider">🔍 Verification Checklist</p>
-              {[
+            {/* 🔍 Verification Summary — Quick overview for admin */}
+            {(() => {
+              const checks = [
                 { label: 'Shop Photo', ok: !!(selectedVendor as any).shopPhotoUrl },
                 { label: 'Shop Name', ok: !!selectedVendor.shopName && selectedVendor.shopName.length >= 2 },
                 { label: 'Address', ok: !!(selectedVendor as any).address },
@@ -333,32 +356,37 @@ export default function AdminVendorsPage() {
                 { label: 'FSSAI Number', ok: !!(selectedVendor as any).fssaiNumber },
                 { label: 'Menu Items (5+)', ok: ((selectedVendor as any).menuItemCount || 0) >= 5 },
                 { label: 'Operating Hours Set', ok: !!(selectedVendor as any).operatingHours },
-              ].map(({ label, ok }) => (
-                <div key={label} className="flex items-center justify-between py-0.5">
-                  <span className="text-[10px] text-faint">{label}</span>
-                  <span className={`text-xs font-bold ${ok ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {ok ? '✅' : '❌ Missing'}
-                  </span>
+              ];
+              const passCount = checks.filter(c => c.ok).length;
+              const totalChecks = checks.length;
+              const allPass = passCount === totalChecks;
+              
+              return (
+                <div className={`mb-4 p-4 rounded-xl border ${allPass ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-black text-body">
+                      {allPass ? '✅ All Checks Passed' : `⚠️ ${totalChecks - passCount} Issues Found`}
+                    </p>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${allPass ? 'bg-emerald-500/15 text-emerald-700' : 'bg-amber-500/15 text-amber-700'}`}>
+                      {passCount}/{totalChecks} verified
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {checks.map(({ label, ok }) => (
+                      <div key={label} className="flex items-center gap-1.5 py-0.5">
+                        <span className={`text-[10px] ${ok ? 'text-emerald-600' : 'text-red-500'}`}>{ok ? '✅' : '❌'}</span>
+                        <span className={`text-[10px] ${ok ? 'text-muted' : 'text-red-600 font-bold'}`}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {!allPass && selectedVendor.status === 'pending' && (
+                    <p className="text-[10px] text-amber-700 mt-3 font-medium">
+                      💡 Tip: Reject with reason so vendor can fix missing items and re-submit.
+                    </p>
+                  )}
                 </div>
-              ))}
-            </div>
-
-            {/* Status Info */}
-            <div className="space-y-2.5 mb-4 p-3 surface rounded-xl">
-              <p className="text-[10px] font-bold text-faint uppercase tracking-wider">📋 Status</p>
-              <div className="flex items-center justify-between py-1">
-                <span className="text-[10px] text-faint">Onboarding Status</span>
-                <span className="text-xs font-bold text-body">{(selectedVendor as any).onboardingStatus || selectedVendor.status}</span>
-              </div>
-              <div className="flex items-center justify-between py-1">
-                <span className="text-[10px] text-faint">Onboarding Step</span>
-                <span className="text-xs font-bold text-body">{(selectedVendor as any).onboardingStep || 'N/A'}</span>
-              </div>
-              <div className="flex items-center justify-between py-1">
-                <span className="text-[10px] text-faint">Submitted At</span>
-                <span className="text-xs font-bold text-body">{(selectedVendor as any).submittedAt ? new Date((selectedVendor as any).submittedAt?.seconds ? (selectedVendor as any).submittedAt.seconds * 1000 : (selectedVendor as any).submittedAt).toLocaleString('en-IN') : 'N/A'}</span>
-              </div>
-            </div>
+              );
+            })()}
 
             {selectedVendor.status === 'pending' && (
               <div className="flex gap-3 mt-5">
