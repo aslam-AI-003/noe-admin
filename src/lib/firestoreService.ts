@@ -82,10 +82,20 @@ export const vendorService = {
   onAll(callback: (vendors: VendorRegistration[]) => void) {
     const firestore = getDb();
     if (!firestore) return () => {};
-    const q = query(collection(firestore, 'vendors'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
+    // NOTE: Removed orderBy to avoid requiring a Firestore index
+    // Sort client-side instead
+    return onSnapshot(collection(firestore, 'vendors'), (snapshot) => {
       const vendors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VendorRegistration));
+      // Sort by createdAt descending (handle both Timestamp and string)
+      vendors.sort((a, b) => {
+        const aTime = (a.createdAt as any)?.seconds ? (a.createdAt as any).seconds * 1000 : new Date(a.createdAt || 0).getTime();
+        const bTime = (b.createdAt as any)?.seconds ? (b.createdAt as any).seconds * 1000 : new Date(b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
       callback(vendors);
+    }, (error) => {
+      console.error('🔥 Firestore onAll error:', error);
+      callback([]);
     });
   },
 

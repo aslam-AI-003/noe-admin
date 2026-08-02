@@ -18,25 +18,28 @@ import {
 type TabType = 'pending' | 'approved' | 'rejected';
 
 export default function AdminVendorsPage() {
-  const { vendorRegistrations, approveVendor, rejectVendor } = useStore();
+  const { vendorRegistrations: storeVendors, approveVendor, rejectVendor } = useStore();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [selectedVendor, setSelectedVendor] = useState<VendorRegistration | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [firestoreVendors, setFirestoreVendors] = useState<VendorRegistration[]>([]);
 
   // Load vendors from Firestore on mount (real-time sync)
   useEffect(() => {
     setMounted(true);
-    const unsub = vendorService.onAll((firestoreVendors) => {
-      if (firestoreVendors.length > 0) {
-        console.log('🔄 Firestore vendors synced:', firestoreVendors.length);
-      }
+    const unsub = vendorService.onAll((vendors) => {
+      console.log('🔄 Firestore vendors synced:', vendors.length);
+      setFirestoreVendors(vendors);
     });
     return () => unsub();
   }, []);
 
   if (!mounted) return <div className="min-h-screen app-bg" />;
+
+  // Merge: prefer Firestore data, fallback to Zustand store
+  const vendorRegistrations = firestoreVendors.length > 0 ? firestoreVendors : storeVendors;
 
   const filtered = vendorRegistrations.filter(r => r.status === activeTab);
   const counts = {
