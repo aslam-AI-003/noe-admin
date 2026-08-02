@@ -86,6 +86,7 @@ export interface VendorRegistration {
   bankAccount?: string;
   ifscCode?: string;
   status: 'pending' | 'approved' | 'rejected';
+  onboardingStatus?: string; // Synced with noe-vendor app
   rejectionReason?: string;
   shopId?: string; // Generated on approval (NOE-SHOP-XXXXX)
   password?: string; // Generated on approval (auto)

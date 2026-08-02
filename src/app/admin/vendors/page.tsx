@@ -47,16 +47,17 @@ export default function AdminVendorsPage() {
 
   const handleApprove = async (id: string) => {
     approveVendor(id);
-    // Also update Firestore
+    // Also update Firestore — write BOTH fields for vendor app compatibility
     const vendor = vendorRegistrations.find(v => v.id === id);
     if (vendor) {
       try {
         await vendorService.update(id, {
           status: 'approved',
+          onboardingStatus: 'approved',  // ← For noe-vendor app
           shopId: vendor.shopId || ('NOE-' + id.slice(-5).toUpperCase()),
           password: vendor.password || ('NOE-' + id.slice(-5).toUpperCase()),
         });
-        console.log('✅ Vendor approved in Firestore');
+        console.log('✅ Vendor approved in Firestore (both status + onboardingStatus)');
       } catch (err) {
         console.warn('Firestore update failed:', err);
       }
@@ -68,10 +69,14 @@ export default function AdminVendorsPage() {
   const handleReject = async (id: string) => {
     if (!rejectReason.trim()) { toast.error('Enter rejection reason'); return; }
     rejectVendor(id, rejectReason);
-    // Also update Firestore
+    // Also update Firestore — write BOTH fields for vendor app compatibility
     try {
-      await vendorService.update(id, { status: 'rejected', rejectionReason: rejectReason });
-      console.log('❌ Vendor rejected in Firestore');
+      await vendorService.update(id, {
+        status: 'rejected',
+        onboardingStatus: 'rejected',  // ← For noe-vendor app
+        rejectionReason: rejectReason,
+      });
+      console.log('❌ Vendor rejected in Firestore (both status + onboardingStatus)');
     } catch (err) {
       console.warn('Firestore update failed:', err);
     }
