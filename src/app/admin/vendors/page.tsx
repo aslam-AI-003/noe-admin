@@ -334,7 +334,7 @@ export default function AdminVendorsPage() {
               <p className="text-[10px] font-bold text-faint uppercase tracking-wider">💳 Payment Details</p>
               {[
                 { label: 'UPI ID', value: (selectedVendor as any).upiId || 'N/A' },
-                { label: 'Account Holder', value: (selectedVendor as any).accountHolderName || 'N/A' },
+                { label: 'Account Holder', value: (selectedVendor as any).accountHolderName || (selectedVendor as any).accountHolder || 'N/A' },
                 { label: 'Bank Name', value: (selectedVendor as any).bankName || 'N/A' },
                 { label: 'Account Number', value: (selectedVendor as any).accountNumber || (selectedVendor as any).bankAccount || 'N/A' },
                 { label: 'IFSC Code', value: (selectedVendor as any).ifscCode || 'N/A' },
@@ -375,7 +375,7 @@ export default function AdminVendorsPage() {
                 { label: 'Address', ok: !!(selectedVendor as any).address },
                 { label: 'City & Pincode', ok: !!(selectedVendor as any).city && !!(selectedVendor as any).pincode },
                 { label: 'Bank/UPI Details', ok: !!(selectedVendor as any).upiId || !!(selectedVendor as any).accountNumber },
-                { label: 'Account Holder Name', ok: !!(selectedVendor as any).accountHolderName },
+                { label: 'Account Holder Name', ok: !!(selectedVendor as any).accountHolderName || !!(selectedVendor as any).accountHolder },
                 { label: 'Aadhaar Uploaded', ok: !!(selectedVendor as any).aadhaarUrl },
                 { label: 'Bank Proof Uploaded', ok: !!(selectedVendor as any).bankDocUrl },
                 { label: 'FSSAI Number', ok: !!(selectedVendor as any).fssaiNumber },
