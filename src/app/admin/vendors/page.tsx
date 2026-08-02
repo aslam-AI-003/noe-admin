@@ -223,43 +223,59 @@ export default function AdminVendorsPage() {
         )}
       </div>
 
-      {/* Reject Modal — With proper message template */}
+      {/* Reject Modal — Multi-select reasons */}
       {showRejectModal && (
         <div className="modal-overlay" onClick={() => setShowRejectModal(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full mx-auto mb-4 bg-[var(--card-border)]" />
             <h2 className="font-black text-body text-lg mb-2">Reject Registration</h2>
-            <p className="text-xs text-muted mb-4">Vendor will be notified to fix issues and re-submit.</p>
+            <p className="text-xs text-muted mb-4">Select all issues. Vendor will be notified to fix and re-submit.</p>
             
-            {/* Quick reason buttons */}
+            {/* Multi-select reason checkboxes */}
             <div className="flex flex-wrap gap-1.5 mb-3">
               {[
                 'Missing proper documents',
                 'Bank proof not uploaded',
+                'Account holder name missing',
                 'Aadhaar not clear/readable',
                 'Shop photo looks fake',
                 'Incomplete bank details',
                 'FSSAI required for food business',
-              ].map(reason => (
-                <button key={reason} onClick={() => setRejectReason(reason)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                    rejectReason === reason ? 'bg-red-500/15 border-red-500/40 text-red-600' : 'border-subtle text-muted hover:border-red-500/20'
-                  }`}>
-                  {reason}
-                </button>
-              ))}
+                'Menu items less than 5',
+                'Operating hours not set',
+                'Address incomplete',
+              ].map(reason => {
+                const isSelected = rejectReason.includes(reason);
+                return (
+                  <button key={reason} onClick={() => {
+                    if (isSelected) {
+                      setRejectReason(rejectReason.replace(reason, '').replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '').trim());
+                    } else {
+                      setRejectReason(rejectReason ? `${rejectReason}, ${reason}` : reason);
+                    }
+                  }}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                      isSelected ? 'bg-red-500/15 border-red-500/40 text-red-600' : 'border-subtle text-muted hover:border-red-500/20'
+                    }`}>
+                    {isSelected ? '☑' : '☐'} {reason}
+                  </button>
+                );
+              })}
             </div>
 
             <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-              placeholder="Enter detailed rejection reason..."
-              className="input-glass w-full resize-none mb-2" rows={3} />
-            <p className="text-[10px] text-faint mb-4">
-              ⚠️ Message sent to vendor: "Your registration was rejected. Reason: {rejectReason || '...'} — Please fix and re-submit with proper documents."
-            </p>
+              placeholder="Or type custom rejection reason..."
+              className="input-glass w-full resize-none mb-2" rows={2} />
+            <div className="p-2.5 bg-red-500/5 border border-red-500/15 rounded-lg mb-4">
+              <p className="text-[10px] text-red-700 dark:text-red-400 font-medium">
+                ⚠️ Message to vendor: "Your registration was rejected. Issues: {rejectReason || '...'} — Please fix all issues and re-submit with proper documents."
+              </p>
+            </div>
             <div className="flex gap-3">
-              <button onClick={() => setShowRejectModal(null)} className="btn-secondary flex-1 py-3">Cancel</button>
+              <button onClick={() => { setShowRejectModal(null); setRejectReason(''); }} className="btn-secondary flex-1 py-3">Cancel</button>
               <button onClick={() => handleReject(showRejectModal)}
-                className="flex-1 py-3 rounded-xl text-xs font-bold bg-red-500 text-white active:scale-95 transition-all">
+                disabled={!rejectReason.trim()}
+                className="flex-1 py-3 rounded-xl text-xs font-bold bg-red-500 text-white active:scale-95 transition-all disabled:opacity-40">
                 Confirm Reject
               </button>
             </div>
@@ -272,7 +288,16 @@ export default function AdminVendorsPage() {
         <div className="modal-overlay" onClick={() => setSelectedVendor(null)}>
           <div className="modal-sheet max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full mx-auto mb-4 bg-[var(--card-border)]" />
-            <h2 className="font-black text-body text-lg mb-4">Vendor Details</h2>
+            <h2 className="font-black text-body text-lg mb-1">Vendor Details</h2>
+            
+            {/* Registered On — Date & Time */}
+            <p className="text-[10px] text-muted mb-4">
+              📅 Registered: {selectedVendor.createdAt ? new Date(
+                (selectedVendor.createdAt as any)?.seconds 
+                  ? (selectedVendor.createdAt as any).seconds * 1000 
+                  : selectedVendor.createdAt
+              ).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+            </p>
 
             {/* Shop Photo */}
             {(selectedVendor as any).shopPhotoUrl && (
