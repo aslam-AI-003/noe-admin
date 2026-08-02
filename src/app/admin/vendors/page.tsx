@@ -243,33 +243,94 @@ export default function AdminVendorsPage() {
         </div>
       )}
 
-      {/* Vendor Detail Modal */}
+      {/* Vendor Detail Modal — Shows ALL vendor data for review */}
       {selectedVendor && !showRejectModal && (
         <div className="modal-overlay" onClick={() => setSelectedVendor(null)}>
-          <div className="modal-sheet max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="modal-sheet max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full mx-auto mb-4 bg-[var(--card-border)]" />
             <h2 className="font-black text-body text-lg mb-4">Vendor Details</h2>
-            <div className="space-y-3">
+
+            {/* Shop Photo */}
+            {(selectedVendor as any).shopPhotoUrl && (
+              <div className="mb-4">
+                <p className="text-[10px] text-faint mb-1">Shop Photo</p>
+                <img src={(selectedVendor as any).shopPhotoUrl} alt="Shop" className="w-full h-32 object-cover rounded-xl border border-subtle" />
+              </div>
+            )}
+
+            {/* Basic Info */}
+            <div className="space-y-2.5 mb-4">
+              <p className="text-[10px] font-bold text-faint uppercase tracking-wider">Basic Info</p>
               {[
                 { icon: Store, label: 'Shop Name', value: selectedVendor.shopName },
-                { icon: FileText, label: 'Owner', value: selectedVendor.ownerName },
+                { icon: Store, label: 'Shop Type', value: (selectedVendor as any).shopType || selectedVendor.category || 'N/A' },
                 { icon: Phone, label: 'Phone', value: selectedVendor.phone },
-                { icon: Mail, label: 'Email', value: selectedVendor.email || 'N/A' },
-                { icon: Store, label: 'Category', value: selectedVendor.category },
-                { icon: MapPin, label: 'Address', value: `${selectedVendor.address}, ${selectedVendor.city} ${selectedVendor.pincode}` },
-                { icon: FileText, label: 'GST', value: selectedVendor.gstNumber || 'N/A' },
-                { icon: FileText, label: 'FSSAI', value: selectedVendor.fssaiNumber || 'N/A' },
-                { icon: CreditCard, label: 'Bank', value: selectedVendor.bankAccount ? `${selectedVendor.bankAccount} (${selectedVendor.ifscCode})` : 'N/A' },
+                { icon: Mail, label: 'Email', value: (selectedVendor as any).email || 'N/A' },
+                { icon: MapPin, label: 'Address', value: (selectedVendor as any).address || 'N/A' },
+                { icon: MapPin, label: 'City', value: (selectedVendor as any).city || 'N/A' },
+                { icon: MapPin, label: 'Pincode', value: (selectedVendor as any).pincode || 'N/A' },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="flex items-start gap-3 py-2 border-b border-subtle last:border-0">
-                  <Icon size={14} className="text-faint mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-faint">{label}</p>
+                <div key={label} className="flex items-start gap-3 py-1.5 border-b border-subtle last:border-0">
+                  <Icon size={13} className="text-faint mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-[9px] text-faint">{label}</p>
                     <p className="text-xs font-bold text-body">{value}</p>
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Bank & Payment */}
+            <div className="space-y-2.5 mb-4 p-3 surface rounded-xl">
+              <p className="text-[10px] font-bold text-faint uppercase tracking-wider">💳 Payment Details</p>
+              {[
+                { label: 'UPI ID', value: (selectedVendor as any).upiId || 'N/A' },
+                { label: 'Account Holder', value: (selectedVendor as any).accountHolderName || 'N/A' },
+                { label: 'Bank Name', value: (selectedVendor as any).bankName || 'N/A' },
+                { label: 'Account Number', value: (selectedVendor as any).accountNumber || (selectedVendor as any).bankAccount || 'N/A' },
+                { label: 'IFSC Code', value: (selectedVendor as any).ifscCode || 'N/A' },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-1">
+                  <span className="text-[10px] text-faint">{label}</span>
+                  <span className="text-xs font-bold text-body">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* KYC Documents */}
+            <div className="space-y-2.5 mb-4 p-3 surface rounded-xl">
+              <p className="text-[10px] font-bold text-faint uppercase tracking-wider">📄 KYC Documents</p>
+              {[
+                { label: 'Aadhaar', url: (selectedVendor as any).aadhaarUrl },
+                { label: 'Bank Proof', url: (selectedVendor as any).bankDocUrl },
+                { label: 'PAN', url: (selectedVendor as any).panUrl },
+                { label: 'FSSAI Number', url: null, text: (selectedVendor as any).fssaiNumber || 'N/A' },
+                { label: 'GST Number', url: null, text: (selectedVendor as any).gstNumber || 'N/A' },
+              ].map(({ label, url, text }) => (
+                <div key={label} className="flex items-center justify-between py-1">
+                  <span className="text-[10px] text-faint">{label}</span>
+                  {url ? (
+                    <a href={url} target="_blank" rel="noopener" className="text-[10px] font-bold text-accent underline">View Document ↗</a>
+                  ) : (
+                    <span className="text-xs font-bold text-body">{text || 'N/A'}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Status Info */}
+            <div className="space-y-2.5 mb-4 p-3 surface rounded-xl">
+              <p className="text-[10px] font-bold text-faint uppercase tracking-wider">📋 Status</p>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-[10px] text-faint">Onboarding Status</span>
+                <span className="text-xs font-bold text-body">{(selectedVendor as any).onboardingStatus || selectedVendor.status}</span>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-[10px] text-faint">Onboarding Step</span>
+                <span className="text-xs font-bold text-body">{(selectedVendor as any).onboardingStep || 'N/A'}</span>
+              </div>
+            </div>
+
             {selectedVendor.status === 'pending' && (
               <div className="flex gap-3 mt-5">
                 <button onClick={() => handleApprove(selectedVendor.id)} className="btn-primary flex-1 py-3">✅ Approve</button>
