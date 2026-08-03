@@ -26,15 +26,25 @@ export default function AdminRidersPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
 
+  const { setRiderRegistrations } = useStore();
+
   useEffect(() => {
     setMounted(true);
     const unsub = riderService.onAll((firestoreRiders) => {
       if (firestoreRiders.length > 0) {
         console.log('🔄 Firestore riders synced:', firestoreRiders.length);
+        // Normalize createdAt from Firestore Timestamp to ISO string
+        const normalized = firestoreRiders.map(r => ({
+          ...r,
+          createdAt: (r.createdAt as any)?.seconds
+            ? new Date((r.createdAt as any).seconds * 1000).toISOString()
+            : r.createdAt || new Date().toISOString(),
+        }));
+        setRiderRegistrations(normalized);
       }
     });
     return () => unsub();
-  }, []);
+  }, [setRiderRegistrations]);
 
   if (!mounted) return <div className="min-h-screen app-bg animate-pulse" />;
 

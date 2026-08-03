@@ -229,6 +229,7 @@ interface StoreState {
 
   // ── RIDER REGISTRATIONS ──
   riderRegistrations: RiderRegistration[];
+  setRiderRegistrations: (riders: RiderRegistration[]) => void;
   addRiderRegistration: (reg: RiderRegistration) => void;
   approveRider: (regId: string) => void;
   rejectRider: (regId: string, reason: string) => void;
@@ -403,6 +404,7 @@ export const useStore = create<StoreState>()(
 
       // ── RIDER REGISTRATIONS ──
       riderRegistrations: [],
+      setRiderRegistrations: (riders) => set({ riderRegistrations: riders }),
       addRiderRegistration: (reg) => set({ riderRegistrations: [...get().riderRegistrations, reg] }),
       approveRider: (regId) => {
         const updated = get().riderRegistrations.map(r => {

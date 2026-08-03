@@ -171,10 +171,20 @@ export const riderService = {
   onAll(callback: (riders: RiderRegistration[]) => void) {
     const firestore = getDb();
     if (!firestore) return () => {};
-    const q = query(collection(firestore, 'riders'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
+    // NOTE: Removed orderBy to avoid requiring a Firestore index
+    // Sort client-side instead
+    return onSnapshot(collection(firestore, 'riders'), (snapshot) => {
       const riders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RiderRegistration));
+      // Sort by createdAt descending (handle both Timestamp and string)
+      riders.sort((a, b) => {
+        const aTime = (a.createdAt as any)?.seconds ? (a.createdAt as any).seconds * 1000 : new Date(a.createdAt || 0).getTime();
+        const bTime = (b.createdAt as any)?.seconds ? (b.createdAt as any).seconds * 1000 : new Date(b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
       callback(riders);
+    }, (error) => {
+      console.error('🔥 Firestore riders onAll error:', error);
+      callback([]);
     });
   },
 };
