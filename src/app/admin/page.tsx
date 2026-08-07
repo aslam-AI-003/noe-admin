@@ -3,15 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useStore, DemoOrder } from '@/store/useStore';
 import toast from 'react-hot-toast';
 import {
   BarChart3, Package, Store, Bike, Clock, CheckCircle2, XCircle, Wallet,
-  Inbox, Zap, RefreshCw, Plus, ClipboardList, UserRound,
+  Inbox, Zap, RefreshCw, Plus, ClipboardList, UserRound, LogOut,
 } from 'lucide-react';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ADMIN DASHBOARD — Shows real orders, can manage everything
+// Protected: requires login via /admin/login
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const STATUS_COLORS: Record<string, string> = {
@@ -28,13 +30,29 @@ const STATUS_COLORS: Record<string, string> = {
 type Tab = 'overview' | 'orders' | 'shops' | 'riders';
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const { demoOrders, updateDemoOrderStatus } = useStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [mounted, setMounted] = useState(false);
+  const [isAuth, setIsAuth] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    // Auth check
+    const token = localStorage.getItem('noe-admin-token');
+    if (token !== 'authenticated') {
+      router.replace('/admin/login');
+    } else {
+      setIsAuth(true);
+    }
+  }, [router]);
 
-  if (!mounted) return <div className="min-h-screen app-bg" />;
+  const handleLogout = () => {
+    localStorage.removeItem('noe-admin-token');
+    router.replace('/admin/login');
+  };
+
+  if (!mounted || !isAuth) return <div className="min-h-screen app-bg" />;
 
   const stats = {
     totalOrders: demoOrders.length,
