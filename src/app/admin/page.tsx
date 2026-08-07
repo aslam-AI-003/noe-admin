@@ -2,43 +2,55 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useStore, DemoOrder } from '@/store/useStore';
+import { orderService, vendorService, riderService } from '@/lib/firestoreService';
 import toast from 'react-hot-toast';
 import {
   BarChart3, Package, Store, Bike, Clock, CheckCircle2, XCircle, Wallet,
-  Inbox, Zap, RefreshCw, Plus, ClipboardList, UserRound, LogOut,
+  Inbox, Zap, TrendingUp, UserRound, MapPin, LogOut, Bell, Moon, Sun,
+  Search, Filter, ChevronRight, Activity, ShoppingBag, Users, Eye,
 } from 'lucide-react';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ADMIN DASHBOARD — Shows real orders, can manage everything
-// Protected: requires login via /admin/login
+// NOX ADMIN DASHBOARD — Premium dark themed
+// Brand: #0E9F6E (green), #111111 (dark), #C9A227 (gold)
+// Real-time Firestore data
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const STATUS_COLORS: Record<string, string> = {
-  placed: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25',
-  confirmed: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/25',
-  preparing: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25',
-  ready: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/25',
-  picked_up: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/25',
-  on_the_way: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/25',
-  delivered: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25',
-  cancelled: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/25',
+  new: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  placed: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  accepted: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  confirmed: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  preparing: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  ready: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  picked_up: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+  on_the_way: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+  delivered: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  cancelled: 'bg-red-500/15 text-red-400 border-red-500/30',
 };
 
-type Tab = 'overview' | 'orders' | 'shops' | 'riders';
+const STATUS_LABELS: Record<string, string> = {
+  new: 'New', placed: 'Placed', accepted: 'Accepted', confirmed: 'Confirmed',
+  preparing: 'Preparing', ready: 'Ready', picked_up: 'Picked Up',
+  on_the_way: 'On The Way', delivered: 'Delivered', cancelled: 'Cancelled',
+};
+
+type Tab = 'dashboard' | 'orders' | 'vendors' | 'riders' | 'customers';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { demoOrders, updateDemoOrderStatus } = useStore();
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [mounted, setMounted] = useState(false);
   const [isAuth, setIsAuth] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [riders, setRiders] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     setMounted(true);
-    // Auth check
     const token = localStorage.getItem('noe-admin-token');
     if (token !== 'authenticated') {
       router.replace('/admin/login');
@@ -47,341 +59,553 @@ export default function AdminDashboard() {
     }
   }, [router]);
 
+  // Real-time Firestore subscriptions
+  useEffect(() => {
+    if (!isAuth) return;
+    const unsubOrders = orderService.onAll((data: any[]) => {
+      data.sort((a, b) => {
+        const aT = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+        const bT = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+        return bT - aT;
+      });
+      setOrders(data);
+    });
+    const unsubVendors = vendorService.onAll((data: any[]) => setVendors(data));
+    const unsubRiders = riderService.onAll((data: any[]) => setRiders(data));
+    return () => { unsubOrders(); unsubVendors(); unsubRiders(); };
+  }, [isAuth]);
+
   const handleLogout = () => {
     localStorage.removeItem('noe-admin-token');
     router.replace('/admin/login');
   };
 
-  if (!mounted || !isAuth) return <div className="min-h-screen app-bg" />;
+  if (!mounted || !isAuth) return <div className="min-h-screen bg-[#0a0a0a]" />;
 
+  // ━━━ Stats ━━━
   const stats = {
-    totalOrders: demoOrders.length,
-    activeOrders: demoOrders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
-    delivered: demoOrders.filter(o => o.status === 'delivered').length,
-    cancelled: demoOrders.filter(o => o.status === 'cancelled').length,
-    revenue: demoOrders.filter(o => o.status === 'delivered').reduce((s, o) => s + o.total, 0),
+    totalOrders: orders.length,
+    activeOrders: orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
+    delivered: orders.filter(o => o.status === 'delivered').length,
+    cancelled: orders.filter(o => o.status === 'cancelled').length,
+    revenue: orders.filter(o => o.status === 'delivered').reduce((s, o) => s + (o.totalAmount || o.total || 0), 0),
+    todayOrders: orders.filter(o => {
+      const t = o.createdAt?.seconds ? o.createdAt.seconds * 1000 : new Date(o.createdAt || 0).getTime();
+      return t > Date.now() - 86400000;
+    }).length,
+    totalVendors: vendors.length,
+    approvedVendors: vendors.filter(v => v.status === 'approved').length,
+    pendingVendors: vendors.filter(v => v.status === 'pending').length,
+    totalRiders: riders.length,
+    approvedRiders: riders.filter(r => r.status === 'approved').length,
   };
 
-  const timeAgo = (iso: string) => {
-    const diff = Date.now() - new Date(iso).getTime();
+  const timeAgo = (ts: any) => {
+    if (!ts) return '-';
+    const time = ts?.seconds ? ts.seconds * 1000 : new Date(ts).getTime();
+    const diff = Date.now() - time;
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return 'Just now';
     if (mins < 60) return `${mins}m ago`;
-    return `${Math.floor(mins / 60)}h ago`;
+    if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
+    return `${Math.floor(mins / 1440)}d ago`;
   };
 
-  const navItems = [
-    { id: 'overview' as Tab, label: 'Overview', icon: BarChart3 },
-    { id: 'orders' as Tab, label: 'Orders', icon: Package, badge: stats.activeOrders },
-    { id: 'shops' as Tab, label: 'Shops', icon: Store },
-    { id: 'riders' as Tab, label: 'Riders', icon: Bike },
-  ];
+  const filteredOrders = searchQuery
+    ? orders.filter(o => (o.orderId || o.id || '').toLowerCase().includes(searchQuery.toLowerCase()) || (o.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()))
+    : orders;
 
-  const quickLinks = [
-    { label: 'Vendor Management', href: '/admin/vendors', icon: Store },
-    { label: 'Rider Management', href: '/admin/riders', icon: Bike },
-    { label: 'Customer App', href: '/', icon: Store },
-    { label: 'Shop Dashboard', href: '/dashboard/shop', icon: Store },
-    { label: 'Rider Dashboard', href: '/dashboard/rider', icon: Bike },
-    { label: 'Orders Page', href: '/orders', icon: ClipboardList },
+  const sidebarItems = [
+    { id: 'dashboard' as Tab, label: 'Dashboard', icon: BarChart3 },
+    { id: 'orders' as Tab, label: 'Orders', icon: Package, badge: stats.activeOrders },
+    { id: 'vendors' as Tab, label: 'Vendors', icon: Store, badge: stats.pendingVendors },
+    { id: 'riders' as Tab, label: 'Riders', icon: Bike },
+    { id: 'customers' as Tab, label: 'Customers', icon: Users },
   ];
 
   return (
-    <div className="min-h-screen app-bg flex">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex w-56 border-r border-subtle flex-col fixed h-screen bg-section">
-        <div className="p-5 border-b border-subtle">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center">
-              <Bike size={16} className="text-white" />
+    <div className="min-h-screen bg-[#0a0a0a] flex text-white">
+      
+      {/* ━━━ SIDEBAR ━━━ */}
+      <aside className="hidden lg:flex w-60 border-r border-white/[0.06] flex-col fixed h-screen bg-[#0f0f0f]">
+        {/* Logo */}
+        <div className="p-5 border-b border-white/[0.06]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0E9F6E, #0a7b55)' }}>
+              <MapPin size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xs font-black text-body">NammaOoru</h1>
-              <p className="text-[10px] text-accent font-bold">Admin Panel</p>
+              <h1 className="text-sm font-black text-white tracking-tight">NOX</h1>
+              <p className="text-[9px] text-[#0E9F6E] font-bold uppercase tracking-wider">Admin Panel</p>
             </div>
           </div>
         </div>
 
+        {/* Nav */}
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => (
+          {sidebarItems.map(item => (
             <button key={item.id} onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === item.id
-                  ? 'bg-orange-500/10 text-accent border border-orange-500/20'
-                  : 'text-faint hover:bg-[var(--card-hover)] hover:text-secondary'
+                  ? 'bg-[#0E9F6E]/10 text-[#0E9F6E] border border-[#0E9F6E]/20'
+                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.03]'
               }`}>
-              <item.icon size={14} />
+              <item.icon size={15} />
               {item.label}
               {item.badge != null && item.badge > 0 && (
-                <span className="ml-auto w-5 h-5 bg-orange-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                <span className="ml-auto w-5 h-5 bg-[#0E9F6E] text-white text-[9px] font-black rounded-full flex items-center justify-center">
                   {item.badge}
                 </span>
               )}
             </button>
           ))}
-
-          <div className="pt-4 mt-4 border-t border-subtle">
-            <p className="text-[10px] text-faint font-bold px-3 mb-2">QUICK LINKS</p>
-            {quickLinks.map(link => (
-              <Link key={link.href} href={link.href}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-faint hover:text-secondary hover:bg-[var(--card-hover)] transition-all">
-                <link.icon size={13} />
-                {link.label}
-              </Link>
-            ))}
-          </div>
         </nav>
 
-        <div className="p-4 border-t border-subtle">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-orange-500/10 rounded-full flex items-center justify-center">
-              <UserRound size={15} className="text-accent" />
+        {/* User */}
+        <div className="p-4 border-t border-white/[0.06]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(14,159,110,0.1)' }}>
+              <UserRound size={15} className="text-[#0E9F6E]" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-body">Admin</p>
-              <p className="text-[10px] text-faint">admin@noe.in</p>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-white">Admin</p>
+              <p className="text-[10px] text-gray-600">admin@nammaooru.in</p>
             </div>
+            <button onClick={handleLogout} className="text-gray-600 hover:text-red-400 transition-colors">
+              <LogOut size={14} />
+            </button>
           </div>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 lg:ml-56 min-h-screen pb-20">
-        {/* Mobile header */}
-        <header className="sticky top-0 z-50 header-glass lg:hidden">
-          <div className="px-4 py-3 flex items-center justify-between">
-            <h1 className="text-sm font-black text-body flex items-center gap-1.5"><Bike size={15} className="text-accent" /> Admin Panel</h1>
-            <div className="flex gap-2">
-              {navItems.map(item => (
-                <button key={item.id} onClick={() => setActiveTab(item.id)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold ${
-                    activeTab === item.id ? 'bg-orange-500 text-white' : 'text-faint'
-                  }`}>
-                  <item.icon size={13} />
-                </button>
-              ))}
+      {/* ━━━ MAIN CONTENT ━━━ */}
+      <main className="flex-1 lg:ml-60 min-h-screen">
+        {/* Top bar */}
+        <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#0a0a0a]/80 border-b border-white/[0.04]">
+          <div className="px-6 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {/* Mobile menu */}
+              <div className="lg:hidden flex items-center gap-2">
+                <MapPin size={16} className="text-[#0E9F6E]" />
+                <span className="text-sm font-black text-white">NOX</span>
+              </div>
+              <h2 className="hidden lg:block text-sm font-bold text-gray-300 capitalize">{activeTab}</h2>
             </div>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold" style={{ background: 'rgba(14,159,110,0.1)', color: '#0E9F6E' }}>
+                <span className="w-1.5 h-1.5 bg-[#0E9F6E] rounded-full animate-pulse" />
+                LIVE
+              </span>
+              <button onClick={handleLogout} className="lg:hidden text-gray-500 hover:text-red-400">
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+          {/* Mobile nav */}
+          <div className="lg:hidden flex gap-1 px-4 pb-2 overflow-x-auto hide-scrollbar">
+            {sidebarItems.map(item => (
+              <button key={item.id} onClick={() => setActiveTab(item.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${
+                  activeTab === item.id ? 'bg-[#0E9F6E]/15 text-[#0E9F6E]' : 'text-gray-600'
+                }`}>
+                <item.icon size={12} />
+                {item.label}
+              </button>
+            ))}
           </div>
         </header>
 
-        <div className="max-w-6xl mx-auto p-4 lg:p-6 space-y-6">
+        <div className="p-4 lg:p-6 space-y-5 max-w-[1400px] mx-auto">
 
-          {/* ═══ OVERVIEW TAB ═══ */}
-          {activeTab === 'overview' && (
+          {/* ═══════════ DASHBOARD TAB ═══════════ */}
+          {activeTab === 'dashboard' && (
             <>
+              {/* Greeting */}
               <div>
-                <h2 className="text-xl font-black text-body">Dashboard</h2>
-                <p className="text-sm text-faint">Real-time demo data from your test orders</p>
+                <h1 className="text-xl font-black text-white">Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}, Admin 👋</h1>
+                <p className="text-xs text-gray-500 mt-0.5">Here&apos;s what&apos;s happening with NOX today</p>
               </div>
 
-              {/* Stats grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                {[
-                  { label: 'Total Orders', value: stats.totalOrders, icon: Package, color: 'text-body' },
-                  { label: 'Active', value: stats.activeOrders, icon: Clock, color: 'text-accent' },
-                  { label: 'Delivered', value: stats.delivered, icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' },
-                  { label: 'Cancelled', value: stats.cancelled, icon: XCircle, color: 'text-red-600 dark:text-red-400' },
-                  { label: 'Revenue', value: `₹${stats.revenue}`, icon: Wallet, color: 'text-emerald-600 dark:text-emerald-400' },
-                ].map((s, i) => (
-                  <div key={i} className="glass-card p-4 text-center">
-                    <s.icon size={20} className={`mx-auto mb-1 ${s.color}`} />
-                    <div className={`text-xl font-black ${s.color}`}>{s.value}</div>
-                    <div className="text-[10px] text-faint mt-0.5">{s.label}</div>
-                  </div>
-                ))}
+              {/* Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <StatCard icon={Package} label="Total Orders" value={stats.totalOrders} color="#3b82f6" />
+                <StatCard icon={Zap} label="Active Now" value={stats.activeOrders} color="#0E9F6E" />
+                <StatCard icon={CheckCircle2} label="Delivered" value={stats.delivered} color="#10b981" />
+                <StatCard icon={Wallet} label="Revenue" value={`₹${stats.revenue}`} color="#C9A227" />
+                <StatCard icon={Store} label="Vendors" value={stats.approvedVendors} color="#f97316" />
+                <StatCard icon={Bike} label="Riders" value={stats.approvedRiders} color="#8b5cf6" />
               </div>
 
-              {/* Recent Orders + Quick Actions */}
+              {/* Today Summary + Recent Orders */}
               <div className="grid lg:grid-cols-3 gap-4">
                 {/* Recent Orders */}
-                <div className="lg:col-span-2 glass-card p-4">
+                <div className="lg:col-span-2 rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black text-body flex items-center gap-1.5"><Package size={14} className="text-accent" /> Recent Orders</h3>
-                    <button onClick={() => setActiveTab('orders')} className="text-xs text-accent font-bold">
-                      View All →
-                    </button>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Activity size={14} className="text-[#0E9F6E]" /> Live Orders
+                    </h3>
+                    <button onClick={() => setActiveTab('orders')} className="text-[10px] text-[#0E9F6E] font-bold">View All →</button>
                   </div>
-
-                  {demoOrders.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Inbox size={32} className="text-faint mx-auto mb-2" />
-                      <p className="text-xs text-faint">No orders yet. Place a test order!</p>
-                      <Link href="/shops" className="text-xs text-accent font-bold mt-2 inline-block">
-                        Go to Customer App →
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {demoOrders.slice(0, 8).map(order => (
-                        <div key={order.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--card-hover)] transition-colors">
-                          <div className="w-8 h-8 rounded-lg overflow-hidden relative flex-shrink-0">
-                            <Image src={order.shopIcon || '/images/categories/groceries.jpg'} alt={order.shopName} fill sizes="32px" className="object-cover" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-body">#{order.id}</p>
-                            <p className="text-[10px] text-faint truncate">{order.customerName} → {order.shopName}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-bold text-body">₹{order.total}</p>
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border ${STATUS_COLORS[order.status] || ''}`}>
-                              {order.status}
+                  <div className="space-y-2">
+                    {orders.slice(0, 6).map(order => (
+                      <div key={order.id} onClick={() => setSelectedOrder(order)}
+                        className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all hover:bg-white/[0.03]" style={{ border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">{order.orderId || `#${(order.id || '').slice(0,8)}`}</span>
+                            <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full border ${STATUS_COLORS[order.status] || STATUS_COLORS.new}`}>
+                              {STATUS_LABELS[order.status] || order.status}
                             </span>
                           </div>
-                          <span className="text-[10px] text-faint">{timeAgo(order.createdAt)}</span>
+                          <p className="text-[10px] text-gray-500 mt-0.5">{order.customerName} → {order.shopName}</p>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Quick Actions */}
-                <div className="glass-card p-4">
-                  <h3 className="text-sm font-black text-body mb-4 flex items-center gap-1.5"><Zap size={14} className="text-accent" /> Quick Actions</h3>
-                  <div className="space-y-2">
-                    {[
-                      { href: '/shops', icon: Store, title: 'Place Test Order', sub: 'As customer' },
-                      { href: '/dashboard/shop', icon: Store, title: 'Shop Dashboard', sub: 'Accept/Prepare orders' },
-                      { href: '/dashboard/rider', icon: Bike, title: 'Rider Dashboard', sub: 'Deliver orders' },
-                      { href: '/orders', icon: ClipboardList, title: 'Customer Orders', sub: 'Track status' },
-                    ].map(link => (
-                      <Link key={link.href} href={link.href} className="flex items-center gap-3 p-3 rounded-xl surface surface-hover transition-colors">
-                        <link.icon size={17} className="text-secondary" />
-                        <div>
-                          <p className="text-xs font-bold text-body">{link.title}</p>
-                          <p className="text-[10px] text-faint">{link.sub}</p>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-[#0E9F6E]">₹{order.totalAmount || order.total || 0}</p>
+                          <p className="text-[9px] text-gray-600">{timeAgo(order.createdAt)}</p>
                         </div>
-                      </Link>
+                      </div>
                     ))}
+                    {orders.length === 0 && (
+                      <div className="text-center py-10">
+                        <Inbox size={28} className="text-gray-700 mx-auto mb-2" />
+                        <p className="text-xs text-gray-600">No orders yet</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              {/* Flow guide */}
-              <div className="glass-sm p-4">
-                <h3 className="text-xs font-black text-body mb-3 flex items-center gap-1.5"><RefreshCw size={13} className="text-accent" /> Demo Order Flow</h3>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {[
-                    { step: '1', label: 'Customer Orders', page: '/shops' },
-                    { step: '2', label: 'Vendor Accepts', page: '/dashboard/shop' },
-                    { step: '3', label: 'Vendor Prepares', page: '/dashboard/shop' },
-                    { step: '4', label: 'Marked Ready', page: '/dashboard/shop' },
-                    { step: '5', label: 'Rider Picks Up', page: '/dashboard/rider' },
-                    { step: '6', label: 'Delivered', page: '/dashboard/rider' },
-                  ].map((s, i) => (
-                    <React.Fragment key={i}>
-                      <Link href={s.page} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg surface hover:bg-orange-500/10 transition-colors group">
-                        <span className="w-5 h-5 bg-orange-500/15 rounded-full flex items-center justify-center text-[9px] font-black text-accent">{s.step}</span>
-                        <span className="text-[10px] text-muted group-hover:text-accent font-semibold">{s.label}</span>
-                      </Link>
-                      {i < 5 && <span className="text-faint">→</span>}
-                    </React.Fragment>
-                  ))}
+                {/* Quick Stats */}
+                <div className="space-y-3">
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <h3 className="text-xs font-bold text-gray-400 mb-3 flex items-center gap-2">
+                      <TrendingUp size={12} className="text-[#C9A227]" /> Today&apos;s Summary
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] text-gray-500">Orders Today</span>
+                        <span className="text-sm font-black text-white">{stats.todayOrders}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] text-gray-500">Today Revenue</span>
+                        <span className="text-sm font-black text-[#0E9F6E]">
+                          ₹{orders.filter(o => {
+                            const t = o.createdAt?.seconds ? o.createdAt.seconds * 1000 : new Date(o.createdAt || 0).getTime();
+                            return t > Date.now() - 86400000 && o.status === 'delivered';
+                          }).reduce((s: number, o: any) => s + (o.totalAmount || o.total || 0), 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] text-gray-500">Pending Vendors</span>
+                        <span className="text-sm font-black text-amber-400">{stats.pendingVendors}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] text-gray-500">Total Riders</span>
+                        <span className="text-sm font-black text-purple-400">{stats.totalRiders}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Platform Info */}
+                  <div className="rounded-2xl p-4" style={{ background: 'rgba(14,159,110,0.05)', border: '1px solid rgba(14,159,110,0.1)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPin size={12} className="text-[#0E9F6E]" />
+                      <span className="text-[10px] text-[#0E9F6E] font-bold">NOX Platform</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500">Namma Ooru Express</p>
+                    <p className="text-[9px] text-gray-700 mt-1">உங்க ஊரு... உங்க சேவை</p>
+                  </div>
                 </div>
               </div>
             </>
           )}
 
-          {/* ═══ ORDERS TAB ═══ */}
+          {/* ═══════════ ORDERS TAB ═══════════ */}
           {activeTab === 'orders' && (
             <>
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-black text-body">All Orders</h2>
-                  <p className="text-sm text-faint">{demoOrders.length} total orders</p>
+                  <h1 className="text-lg font-black text-white">All Orders</h1>
+                  <p className="text-xs text-gray-500">{orders.length} total • {stats.activeOrders} active</p>
                 </div>
-                <Link href="/shops" className="btn-primary text-xs px-4 py-2 flex items-center gap-1"><Plus size={13} /> New Test Order</Link>
+                <div className="relative">
+                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..."
+                    className="pl-8 pr-3 py-2 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-gray-700 focus:outline-none focus:border-[#0E9F6E]/30 w-48" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                {filteredOrders.map(order => (
+                  <div key={order.id} onClick={() => setSelectedOrder(order)}
+                    className="rounded-xl p-4 cursor-pointer transition-all hover:bg-white/[0.02]" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-white">{order.orderId || `#${(order.id || '').slice(0,8)}`}</span>
+                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full border ${STATUS_COLORS[order.status] || STATUS_COLORS.new}`}>
+                            {STATUS_LABELS[order.status] || order.status}
+                          </span>
+                          {order.riderName && <span className="text-[9px] text-purple-400 font-semibold">🛵 {order.riderName}</span>}
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-1">👤 {order.customerName} → 🏪 {order.shopName} • {order.items?.length || 0} items</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-[#0E9F6E]">₹{order.totalAmount || order.total || 0}</p>
+                        <p className="text-[9px] text-gray-600">{timeAgo(order.createdAt)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {filteredOrders.length === 0 && (
+                  <div className="text-center py-16">
+                    <Package size={32} className="text-gray-700 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No orders found</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ═══════════ VENDORS TAB ═══════════ */}
+          {activeTab === 'vendors' && (
+            <>
+              <div>
+                <h1 className="text-lg font-black text-white">Vendors</h1>
+                <p className="text-xs text-gray-500">{vendors.length} total • {stats.pendingVendors} pending approval</p>
               </div>
 
-              {demoOrders.length === 0 ? (
-                <div className="glass-card p-12 text-center">
-                  <Inbox size={40} className="text-faint mx-auto mb-3" />
-                  <p className="text-sm font-bold text-muted">No orders yet</p>
-                  <p className="text-xs text-faint mt-1">Place a test order from the customer app</p>
-                  <Link href="/shops" className="btn-primary text-xs px-4 py-2 mt-4 inline-flex">
-                    Browse Shops →
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {demoOrders.map(order => (
-                    <div key={order.id} className="glass-card p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden relative flex-shrink-0">
-                          <Image src={order.shopIcon || '/images/categories/groceries.jpg'} alt={order.shopName} fill sizes="40px" className="object-cover" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <p className="text-sm font-black text-body">#{order.id}</p>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${STATUS_COLORS[order.status] || ''}`}>
-                              {order.status.replace('_', ' ')}
-                            </span>
+              {/* Pending */}
+              {vendors.filter(v => v.status === 'pending').length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-wider">⚠️ Pending Approval</h3>
+                  <div className="space-y-2">
+                    {vendors.filter(v => v.status === 'pending').map(vendor => (
+                      <div key={vendor.id} className="rounded-xl p-4" style={{ background: 'rgba(245,158,11,0.03)', border: '1px solid rgba(245,158,11,0.1)' }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(14,159,110,0.1)' }}>
+                            <Store size={16} className="text-[#0E9F6E]" />
                           </div>
-                          <p className="text-xs text-muted">{order.customerName} ({order.customerPhone}) → {order.shopName}</p>
-                          <p className="text-[10px] text-faint mt-0.5">
-                            {order.items.map(i => `${i.name}×${i.quantity}`).join(', ')} • {order.paymentMethod.toUpperCase()}
-                          </p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-black text-accent">₹{order.total}</p>
-                          <p className="text-[10px] text-faint">{timeAgo(order.createdAt)}</p>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-white">{vendor.shopName || vendor.name}</p>
+                            <p className="text-[10px] text-gray-500">{vendor.ownerName} • {vendor.phone} • {vendor.category || '-'} • {vendor.city || vendor.area || '-'}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={async () => { await vendorService.update(vendor.id, { status: 'approved' }); toast.success('✅ Approved!'); }}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-white" style={{ background: '#0E9F6E' }}>Approve</button>
+                            <button onClick={async () => { await vendorService.update(vendor.id, { status: 'rejected' }); toast.error('❌ Rejected'); }}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-red-400 bg-red-500/10">Reject</button>
+                          </div>
                         </div>
                       </div>
-                      {order.riderName && (
-                        <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-2 flex items-center gap-1"><Bike size={11} /> Rider: {order.riderName}</p>
-                      )}
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Approved */}
+              <div>
+                <h3 className="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider">✅ Approved Vendors</h3>
+                <div className="space-y-2">
+                  {vendors.filter(v => v.status === 'approved').map(vendor => (
+                    <div key={vendor.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(14,159,110,0.1)' }}>
+                          <Store size={16} className="text-[#0E9F6E]" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-white">{vendor.shopName || vendor.name}</p>
+                          <p className="text-[10px] text-gray-500">{vendor.ownerName} • 📞 {vendor.phone} • {vendor.category || '-'} • 📍 {vendor.city || vendor.area || '-'}</p>
+                        </div>
+                        <span className="text-[9px] text-emerald-400 font-bold">Active ✓</span>
+                      </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {vendors.length === 0 && (
+                <div className="text-center py-16">
+                  <Store size={32} className="text-gray-700 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No vendors registered yet</p>
                 </div>
               )}
             </>
           )}
 
-          {/* ═══ SHOPS TAB ═══ */}
-          {activeTab === 'shops' && (
-            <>
-              <div>
-                <h2 className="text-xl font-black text-body">Shop Management</h2>
-                <p className="text-sm text-faint">Manage vendor dashboards</p>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <Link href="/dashboard/shop" className="glass-card p-5 hover:border-orange-400/25 transition-all group">
-                  <Store size={28} className="text-accent mb-2" />
-                  <p className="text-sm font-bold text-body group-hover:text-accent">Open Shop Dashboard</p>
-                  <p className="text-xs text-faint mt-1">Accept orders, prepare items, mark ready</p>
-                </Link>
-                <Link href="/shop/register" className="glass-card p-5 hover:border-orange-400/25 transition-all group">
-                  <Plus size={28} className="text-accent mb-2" />
-                  <p className="text-sm font-bold text-body group-hover:text-accent">Register New Shop</p>
-                  <p className="text-xs text-faint mt-1">Add a new vendor to the platform</p>
-                </Link>
-              </div>
-            </>
-          )}
-
-          {/* ═══ RIDERS TAB ═══ */}
+          {/* ═══════════ RIDERS TAB ═══════════ */}
           {activeTab === 'riders' && (
             <>
               <div>
-                <h2 className="text-xl font-black text-body">Rider Management</h2>
-                <p className="text-sm text-faint">Manage delivery partners</p>
+                <h1 className="text-lg font-black text-white">Riders</h1>
+                <p className="text-xs text-gray-500">{riders.length} total • {stats.approvedRiders} approved</p>
               </div>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <Link href="/dashboard/rider" className="glass-card p-5 hover:border-orange-400/25 transition-all group">
-                  <Bike size={28} className="text-accent mb-2" />
-                  <p className="text-sm font-bold text-body group-hover:text-accent">Open Rider Dashboard</p>
-                  <p className="text-xs text-faint mt-1">Pick up and deliver orders</p>
-                </Link>
-                <Link href="/rider/register" className="glass-card p-5 hover:border-orange-400/25 transition-all group">
-                  <Plus size={28} className="text-accent mb-2" />
-                  <p className="text-sm font-bold text-body group-hover:text-accent">Register New Rider</p>
-                  <p className="text-xs text-faint mt-1">Add a new delivery partner</p>
-                </Link>
+
+              {/* Pending */}
+              {riders.filter(r => r.status === 'pending').length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-wider">⚠️ Pending Approval</h3>
+                  <div className="space-y-2">
+                    {riders.filter(r => r.status === 'pending').map(rider => (
+                      <div key={rider.id} className="rounded-xl p-4" style={{ background: 'rgba(245,158,11,0.03)', border: '1px solid rgba(245,158,11,0.1)' }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10">
+                            <Bike size={16} className="text-purple-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-white">{rider.name}</p>
+                            <p className="text-[10px] text-gray-500">📞 {rider.phone} • 🏍️ {rider.vehicleType || 'Bike'} • 📍 {rider.area || rider.city || '-'}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={async () => { await riderService.update(rider.id, { status: 'approved' }); toast.success('✅ Approved!'); }}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-white" style={{ background: '#0E9F6E' }}>Approve</button>
+                            <button onClick={async () => { await riderService.update(rider.id, { status: 'rejected' }); toast.error('❌ Rejected'); }}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-red-400 bg-red-500/10">Reject</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Approved */}
+              <div>
+                <h3 className="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider">✅ Active Riders</h3>
+                <div className="space-y-2">
+                  {riders.filter(r => r.status === 'approved').map(rider => (
+                    <div key={rider.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10">
+                          <Bike size={16} className="text-purple-400" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-white">{rider.name}</p>
+                          <p className="text-[10px] text-gray-500">📞 {rider.phone} • 🏍️ {rider.vehicleType || 'Bike'} • 📍 {rider.area || rider.city || '-'}</p>
+                        </div>
+                        <span className="text-[9px] text-emerald-400 font-bold">Active ✓</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {riders.length === 0 && (
+                <div className="text-center py-16">
+                  <Bike size={32} className="text-gray-700 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No riders registered yet</p>
+                </div>
+              )}
             </>
           )}
 
+          {/* ═══════════ CUSTOMERS TAB ═══════════ */}
+          {activeTab === 'customers' && (
+            <>
+              <div>
+                <h1 className="text-lg font-black text-white">Customers</h1>
+                <p className="text-xs text-gray-500">Unique customers from orders</p>
+              </div>
+              <div className="space-y-2">
+                {Array.from(new Set(orders.map(o => o.customerPhone || o.customerName))).map((customer, i) => {
+                  const customerOrders = orders.filter(o => (o.customerPhone || o.customerName) === customer);
+                  const name = customerOrders[0]?.customerName || 'Unknown';
+                  const phone = customerOrders[0]?.customerPhone || '-';
+                  const totalSpent = customerOrders.reduce((s, o) => s + (o.totalAmount || o.total || 0), 0);
+                  return (
+                    <div key={i} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(14,159,110,0.1)' }}>
+                          <UserRound size={16} className="text-[#0E9F6E]" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-white">{name}</p>
+                          <p className="text-[10px] text-gray-500">📞 {phone} • {customerOrders.length} orders</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-[#0E9F6E]">₹{totalSpent}</p>
+                          <p className="text-[9px] text-gray-600">Total spent</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {orders.length === 0 && (
+                  <div className="text-center py-16">
+                    <Users size={32} className="text-gray-700 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No customers yet</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </main>
+
+      {/* ━━━ ORDER DETAIL MODAL ━━━ */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
+          <div className="relative rounded-2xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto"
+            style={{ background: '#141414', border: '1px solid rgba(14,159,110,0.15)' }}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-white">{selectedOrder.orderId || `#${selectedOrder.id?.slice(0,8)}`}</h2>
+              <button onClick={() => setSelectedOrder(null)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+
+            <span className={`inline-block px-3 py-1 text-xs font-bold rounded-full border ${STATUS_COLORS[selectedOrder.status]}`}>
+              {STATUS_LABELS[selectedOrder.status] || selectedOrder.status}
+            </span>
+
+            <div className="space-y-3">
+              <InfoRow label="Customer" value={`${selectedOrder.customerName} • ${selectedOrder.customerPhone || '-'}`} />
+              <InfoRow label="Shop" value={selectedOrder.shopName} />
+              {selectedOrder.riderName && <InfoRow label="Rider" value={`🛵 ${selectedOrder.riderName} • ${selectedOrder.riderPhone || ''}`} />}
+              <InfoRow label="Payment" value={(selectedOrder.paymentMethod || 'COD').toUpperCase()} />
+              {selectedOrder.deliveryAddress && <InfoRow label="Address" value={selectedOrder.deliveryAddress} />}
+              {selectedOrder.deliveryOtp && <InfoRow label="OTP" value={selectedOrder.deliveryOtp} highlight />}
+            </div>
+
+            {/* Items */}
+            <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <p className="text-[10px] text-gray-500 mb-2">Items ({selectedOrder.items?.length || 0})</p>
+              {selectedOrder.items?.map((item: any, i: number) => (
+                <div key={i} className="flex justify-between text-xs py-0.5">
+                  <span className="text-gray-400">{item.name} × {item.quantity}</span>
+                  <span className="text-white font-semibold">₹{item.price * item.quantity}</span>
+                </div>
+              ))}
+              <div className="border-t border-white/[0.06] mt-2 pt-2 flex justify-between">
+                <span className="text-xs font-bold text-white">Total</span>
+                <span className="text-sm font-black text-[#0E9F6E]">₹{selectedOrder.totalAmount || selectedOrder.total}</span>
+              </div>
+            </div>
+
+            <p className="text-[9px] text-gray-700 text-center">{timeAgo(selectedOrder.createdAt)}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ━━━ Stat Card ━━━
+function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
+  return (
+    <div className="rounded-xl p-3.5 text-center" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="w-9 h-9 mx-auto rounded-lg flex items-center justify-center mb-1.5" style={{ background: `${color}15` }}>
+        <Icon size={15} style={{ color }} />
+      </div>
+      <p className="text-lg font-black text-white">{value}</p>
+      <p className="text-[9px] text-gray-600">{label}</p>
+    </div>
+  );
+}
+
+// ━━━ Info Row ━━━
+function InfoRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="flex justify-between items-center py-1.5 border-b border-white/[0.03]">
+      <span className="text-[10px] text-gray-500">{label}</span>
+      <span className={`text-xs font-semibold ${highlight ? 'text-[#C9A227] tracking-widest font-black text-sm' : 'text-gray-300'}`}>{value}</span>
     </div>
   );
 }
