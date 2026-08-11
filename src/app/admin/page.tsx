@@ -443,23 +443,75 @@ export default function AdminDashboard() {
               {riders.filter(r => r.status === 'pending').length > 0 && (
                 <div>
                   <h3 className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-wider">⚠️ Pending Approval</h3>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {riders.filter(r => r.status === 'pending').map(rider => (
-                      <div key={rider.id} className="rounded-xl p-4" style={{ background: 'rgba(245,158,11,0.03)', border: '1px solid rgba(245,158,11,0.1)' }}>
+                      <div key={rider.id} className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(245,158,11,0.03)', border: '1px solid rgba(245,158,11,0.1)' }}>
+                        {/* Header */}
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10">
                             <Bike size={16} className="text-purple-400" />
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-bold text-white">{rider.name}</p>
-                            <p className="text-[10px] text-gray-500">📞 {rider.phone} • 🏍️ {rider.vehicleType || 'Bike'} • 📍 {rider.area || rider.city || '-'}</p>
+                            <p className="text-[10px] text-gray-500">📞 {rider.phone} • 📍 {rider.area || rider.city || '-'}</p>
                           </div>
-                          <div className="flex gap-2">
-                            <button onClick={async () => { await riderService.update(rider.id, { status: 'approved' }); toast.success('✅ Approved!'); }}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-white" style={{ background: '#0E9F6E' }}>Approve</button>
-                            <button onClick={async () => { await riderService.update(rider.id, { status: 'rejected' }); toast.error('❌ Rejected'); }}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-red-400 bg-red-500/10">Reject</button>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/25">pending</span>
+                        </div>
+
+                        {/* Full Details Grid */}
+                        <div className="p-3 rounded-xl space-y-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            <div>
+                              <p className="text-gray-600">Vehicle Type</p>
+                              <p className="text-white font-bold">🏍️ {rider.vehicleType || 'Bike'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Aadhaar</p>
+                              <p className="text-white font-bold">🪪 {rider.aadhaarNumber || '-'}</p>
+                            </div>
+                            {rider.licenseNumber && (
+                              <div>
+                                <p className="text-gray-600">Driving License</p>
+                                <p className="text-white font-bold">📜 {rider.licenseNumber}</p>
+                              </div>
+                            )}
+                            {rider.vehicleNumber && (
+                              <div>
+                                <p className="text-gray-600">Vehicle Number</p>
+                                <p className="text-white font-bold">🚗 {rider.vehicleNumber}</p>
+                              </div>
+                            )}
+                            {rider.vehicleModel && (
+                              <div>
+                                <p className="text-gray-600">Vehicle Model</p>
+                                <p className="text-white font-bold">🏎️ {rider.vehicleModel}</p>
+                              </div>
+                            )}
+                            {rider.email && (
+                              <div>
+                                <p className="text-gray-600">Email</p>
+                                <p className="text-white font-bold">✉️ {rider.email}</p>
+                              </div>
+                            )}
                           </div>
+                          <p className="text-[9px] text-gray-600">Registered: {rider.createdAt ? new Date(rider.createdAt.seconds ? rider.createdAt.seconds * 1000 : rider.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          <button onClick={async () => {
+                            const vNum = rider.vehicleNumber || '';
+                            const last4 = vNum ? vNum.replace(/[^A-Z0-9]/gi, '').slice(-4).toUpperCase() : rider.phone.slice(-4);
+                            const riderId = 'NOX-R-' + last4;
+                            await riderService.update(rider.id, { status: 'approved', riderId, password: riderId, approvedAt: new Date().toISOString() });
+                            toast.success('✅ Approved! Rider ID: ' + riderId);
+                          }}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white text-center" style={{ background: '#0E9F6E' }}>✅ Approve</button>
+                          <button onClick={async () => {
+                            const reason = prompt('Rejection reason:');
+                            if (reason) { await riderService.update(rider.id, { status: 'rejected', rejectionReason: reason }); toast.error('❌ Rejected'); }
+                          }}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 text-center">❌ Reject</button>
                         </div>
                       </div>
                     ))}
@@ -468,25 +520,33 @@ export default function AdminDashboard() {
               )}
 
               {/* Approved */}
-              <div>
-                <h3 className="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider">✅ Active Riders</h3>
-                <div className="space-y-2">
-                  {riders.filter(r => r.status === 'approved').map(rider => (
-                    <div key={rider.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10">
-                          <Bike size={16} className="text-purple-400" />
+              {riders.filter(r => r.status === 'approved').length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider">✅ Active Riders</h3>
+                  <div className="space-y-2">
+                    {riders.filter(r => r.status === 'approved').map(rider => (
+                      <div key={rider.id} className="rounded-xl p-4 space-y-2" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10">
+                            <Bike size={16} className="text-purple-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-white">{rider.name}</p>
+                            <p className="text-[10px] text-gray-500">📞 {rider.phone} • 🏍️ {rider.vehicleType || 'Bike'} • 📍 {rider.area || rider.city || '-'}</p>
+                          </div>
+                          <span className="text-[9px] text-emerald-400 font-bold">Active ✓</span>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-white">{rider.name}</p>
-                          <p className="text-[10px] text-gray-500">📞 {rider.phone} • 🏍️ {rider.vehicleType || 'Bike'} • 📍 {rider.area || rider.city || '-'}</p>
-                        </div>
-                        <span className="text-[9px] text-emerald-400 font-bold">Active ✓</span>
+                        {rider.riderId && (
+                          <div className="p-2 rounded-lg" style={{ background: 'rgba(14,159,110,0.05)', border: '1px solid rgba(14,159,110,0.15)' }}>
+                            <p className="text-[9px] text-gray-500">Rider ID / Password</p>
+                            <p className="text-xs font-black text-emerald-400">{rider.riderId}</p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {riders.length === 0 && (
                 <div className="text-center py-16">
