@@ -47,6 +47,7 @@ export default function AdminDashboard() {
   const [vendors, setVendors] = useState<any[]>([]);
   const [riders, setRiders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedRider, setSelectedRider] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -534,7 +535,13 @@ export default function AdminDashboard() {
                             <p className="text-sm font-bold text-white">{rider.name}</p>
                             <p className="text-[10px] text-gray-500">📞 {rider.phone} • 🏍️ {rider.vehicleType || 'Bike'} • 📍 {rider.area || rider.city || '-'}</p>
                           </div>
-                          <span className="text-[9px] text-emerald-400 font-bold">Active ✓</span>
+                          <div className="flex items-center gap-2">
+                            {rider.isOnline ? (
+                              <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />Online</span>
+                            ) : (
+                              <span className="text-[9px] text-gray-600 font-bold">Offline</span>
+                            )}
+                          </div>
                         </div>
                         {rider.riderId && (
                           <div className="p-2 rounded-lg" style={{ background: 'rgba(14,159,110,0.05)', border: '1px solid rgba(14,159,110,0.15)' }}>
@@ -542,6 +549,9 @@ export default function AdminDashboard() {
                             <p className="text-xs font-black text-emerald-400">{rider.riderId}</p>
                           </div>
                         )}
+                        <button onClick={() => setSelectedRider(rider)} className="w-full py-2 text-[10px] font-bold text-purple-400 bg-purple-500/5 rounded-lg border border-purple-500/15 hover:bg-purple-500/10 transition-all">
+                          👁️ View Documents & Details
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -640,6 +650,107 @@ export default function AdminDashboard() {
             </div>
 
             <p className="text-[9px] text-gray-700 text-center">{timeAgo(selectedOrder.createdAt)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ━━━ RIDER DETAIL MODAL ━━━ */}
+      {selectedRider && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedRider(null)} />
+          <div className="relative rounded-2xl w-full max-w-lg p-6 space-y-4 max-h-[85vh] overflow-y-auto"
+            style={{ background: '#141414', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <Bike size={18} className="text-purple-400" /> {selectedRider.name}
+              </h2>
+              <button onClick={() => setSelectedRider(null)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+
+            {/* Status & ID */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedRider.isOnline ? (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Online
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-500/10 text-gray-400 border border-gray-500/20">Offline</span>
+              )}
+              {selectedRider.riderId && (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">{selectedRider.riderId}</span>
+              )}
+            </div>
+
+            {/* Basic Info */}
+            <div className="space-y-2">
+              <InfoRow label="Phone" value={selectedRider.phone} />
+              <InfoRow label="Vehicle" value={`${selectedRider.vehicleType || 'Bike'} • ${selectedRider.vehicleNumber || '-'} • ${selectedRider.vehicleModel || '-'}`} />
+              <InfoRow label="Aadhaar" value={selectedRider.aadhaarNumber || '-'} />
+              {selectedRider.licenseNumber && <InfoRow label="License" value={selectedRider.licenseNumber} />}
+              <InfoRow label="City" value={selectedRider.area || selectedRider.city || '-'} />
+            </div>
+
+            {/* Uploaded Documents */}
+            <div>
+              <p className="text-xs font-bold text-white mb-2">📄 Uploaded Documents</p>
+              {selectedRider.documents ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedRider.documents.photo && (
+                    <div className="rounded-lg overflow-hidden border border-white/10">
+                      <img src={selectedRider.documents.photo} alt="Photo" className="w-full h-24 object-cover" />
+                      <p className="text-[9px] text-gray-500 p-1 text-center">Profile Photo</p>
+                    </div>
+                  )}
+                  {selectedRider.documents.aadhaarFront && (
+                    <div className="rounded-lg overflow-hidden border border-white/10">
+                      <img src={selectedRider.documents.aadhaarFront} alt="Aadhaar Front" className="w-full h-24 object-cover" />
+                      <p className="text-[9px] text-gray-500 p-1 text-center">Aadhaar Front</p>
+                    </div>
+                  )}
+                  {selectedRider.documents.aadhaarBack && (
+                    <div className="rounded-lg overflow-hidden border border-white/10">
+                      <img src={selectedRider.documents.aadhaarBack} alt="Aadhaar Back" className="w-full h-24 object-cover" />
+                      <p className="text-[9px] text-gray-500 p-1 text-center">Aadhaar Back</p>
+                    </div>
+                  )}
+                  {selectedRider.documents.license && (
+                    <div className="rounded-lg overflow-hidden border border-white/10">
+                      <img src={selectedRider.documents.license} alt="License" className="w-full h-24 object-cover" />
+                      <p className="text-[9px] text-gray-500 p-1 text-center">Driving License</p>
+                    </div>
+                  )}
+                  {selectedRider.documents.rcBook && (
+                    <div className="rounded-lg overflow-hidden border border-white/10">
+                      <img src={selectedRider.documents.rcBook} alt="RC Book" className="w-full h-24 object-cover" />
+                      <p className="text-[9px] text-gray-500 p-1 text-center">RC Book</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[10px] text-gray-600 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>No documents uploaded yet</p>
+              )}
+            </div>
+
+            {/* Bank Details */}
+            <div>
+              <p className="text-xs font-bold text-white mb-2">🏦 Bank Details</p>
+              {selectedRider.bankDetails ? (
+                <div className="p-3 rounded-xl space-y-1.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <InfoRow label="Account Holder" value={selectedRider.bankDetails.accountHolder || '-'} />
+                  <InfoRow label="Account Number" value={selectedRider.bankDetails.accountNumber || '-'} />
+                  <InfoRow label="IFSC" value={selectedRider.bankDetails.ifscCode || '-'} />
+                  <InfoRow label="Bank" value={selectedRider.bankDetails.bankName || '-'} />
+                  {selectedRider.bankDetails.upiId && <InfoRow label="UPI" value={selectedRider.bankDetails.upiId} />}
+                </div>
+              ) : (
+                <p className="text-[10px] text-gray-600 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>Bank details not added yet</p>
+              )}
+            </div>
+
+            <button onClick={() => setSelectedRider(null)}
+              className="w-full py-3 rounded-xl text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20">
+              Close
+            </button>
           </div>
         </div>
       )}
