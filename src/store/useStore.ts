@@ -409,7 +409,12 @@ export const useStore = create<StoreState>()(
       approveRider: (regId) => {
         const updated = get().riderRegistrations.map(r => {
           if (r.id !== regId) return r;
-          const riderId = 'NOE-R-' + Date.now().toString(36).toUpperCase().slice(-4);
+          // Password = NOX-R-{last 4 digits of vehicle number or phone}
+          const vehicleNum = (r as any).vehicleNumber || '';
+          const last4 = vehicleNum
+            ? vehicleNum.replace(/[^A-Z0-9]/gi, '').slice(-4)
+            : r.phone.slice(-4);
+          const riderId = 'NOX-R-' + last4.toUpperCase();
           const password = riderId;
           return { ...r, status: 'approved' as const, riderId, password, approvedAt: new Date().toISOString(), isOnline: false, totalDeliveries: 0, totalEarnings: 0 };
         });

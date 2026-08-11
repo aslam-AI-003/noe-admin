@@ -57,14 +57,15 @@ export default function AdminRidersPage() {
   const handleApprove = async (id: string) => {
     approveRider(id);
     const rider = useStore.getState().riderRegistrations.find(r => r.id === id);
-    // Also update Firestore
+    // Also update Firestore with new NOX-R-{last4} password
     try {
       await riderService.update(id, {
         status: 'approved',
-        riderId: rider?.riderId || ('NOE-R-' + id.slice(-4).toUpperCase()),
-        password: rider?.password || ('NOE-R-' + id.slice(-4).toUpperCase()),
+        riderId: rider?.riderId,
+        password: rider?.password,
+        approvedAt: new Date().toISOString(),
       });
-      console.log('✅ Rider approved in Firestore');
+      console.log('✅ Rider approved in Firestore:', rider?.riderId);
     } catch (err) {
       console.warn('Firestore update failed:', err);
     }
@@ -174,12 +175,43 @@ export default function AdminRidersPage() {
                     </span>
                   </div>
 
-                  {/* Details */}
-                  <div className="flex flex-wrap gap-2 text-[10px]">
-                    <span className="px-2 py-0.5 surface rounded-full text-muted">🏍️ {rider.vehicleType}</span>
-                    <span className="px-2 py-0.5 surface rounded-full text-muted">🪪 {rider.aadhaarNumber.slice(0, 4)}****</span>
-                    {rider.licenseNumber && <span className="px-2 py-0.5 surface rounded-full text-muted">📜 DL: {rider.licenseNumber}</span>}
-                    {rider.email && <span className="px-2 py-0.5 surface rounded-full text-muted">✉️ {rider.email}</span>}
+                  {/* Full Details */}
+                  <div className="p-3 surface rounded-xl space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <p className="text-faint">Vehicle Type</p>
+                        <p className="text-body font-bold">🏍️ {rider.vehicleType}</p>
+                      </div>
+                      <div>
+                        <p className="text-faint">Aadhaar</p>
+                        <p className="text-body font-bold">🪪 {rider.aadhaarNumber}</p>
+                      </div>
+                      {rider.licenseNumber && (
+                        <div>
+                          <p className="text-faint">Driving License</p>
+                          <p className="text-body font-bold">📜 {rider.licenseNumber}</p>
+                        </div>
+                      )}
+                      {(rider as any).vehicleNumber && (
+                        <div>
+                          <p className="text-faint">Vehicle Number</p>
+                          <p className="text-body font-bold">🚗 {(rider as any).vehicleNumber}</p>
+                        </div>
+                      )}
+                      {(rider as any).vehicleModel && (
+                        <div>
+                          <p className="text-faint">Vehicle Model</p>
+                          <p className="text-body font-bold">🏎️ {(rider as any).vehicleModel}</p>
+                        </div>
+                      )}
+                      {rider.email && (
+                        <div>
+                          <p className="text-faint">Email</p>
+                          <p className="text-body font-bold">✉️ {rider.email}</p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-faint">Registered: {new Date(rider.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                   </div>
 
                   {/* Approved: Show credentials */}
