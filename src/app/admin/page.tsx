@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { orderService, vendorService, riderService } from '@/lib/firestoreService';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import {
   BarChart3, Package, Store, Bike, Clock, CheckCircle2, XCircle, Wallet,
@@ -49,6 +51,8 @@ export default function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedRider, setSelectedRider] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [peakHourHero, setPeakHourHero] = useState(false);
+  const [rainWarrior, setRainWarrior] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -73,8 +77,38 @@ export default function AdminDashboard() {
     });
     const unsubVendors = vendorService.onAll((data: any[]) => setVendors(data));
     const unsubRiders = riderService.onAll((data: any[]) => setRiders(data));
-    return () => { unsubOrders(); unsubVendors(); unsubRiders(); };
+
+    // Listen to incentive settings
+    let unsubIncentives = () => {};
+    if (db) {
+      unsubIncentives = onSnapshot(doc(db, 'settings', 'incentives'), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setPeakHourHero(data?.peakHourHero === true);
+          setRainWarrior(data?.rainWarrior === true);
+        }
+      });
+    }
+
+    return () => { unsubOrders(); unsubVendors(); unsubRiders(); unsubIncentives(); };
   }, [isAuth]);
+
+  // Toggle incentive settings in Firestore
+  const togglePeakHour = async () => {
+    if (!db) return;
+    const newVal = !peakHourHero;
+    await setDoc(doc(db, 'settings', 'incentives'), { peakHourHero: newVal, rainWarrior }, { merge: true });
+    setPeakHourHero(newVal);
+    toast.success(newVal ? '🔥 Peak Hour Hero ACTIVATED! Riders get ₹10/order extra' : '⏸️ Peak Hour Hero deactivated');
+  };
+
+  const toggleRainWarrior = async () => {
+    if (!db) return;
+    const newVal = !rainWarrior;
+    await setDoc(doc(db, 'settings', 'incentives'), { rainWarrior: newVal, peakHourHero }, { merge: true });
+    setRainWarrior(newVal);
+    toast.success(newVal ? '🌧️ Rain Warrior ACTIVATED! Riders get ₹10/ride extra' : '⏸️ Rain Warrior deactivated');
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('noe-admin-token');
@@ -304,6 +338,41 @@ export default function AdminDashboard() {
                         <span className="text-sm font-black text-purple-400">{stats.totalRiders}</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* ━━━ RIDER INCENTIVE CONTROLS ━━━ */}
+                  <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <h3 className="text-xs font-bold text-white mb-3 flex items-center gap-2">
+                      <Zap size={12} className="text-amber-400" /> Rider Incentives
+                    </h3>
+
+                    {/* Peak Hour Hero Toggle */}
+                    <div className="flex items-center justify-between py-2.5 border-b border-white/[0.04]">
+                      <div>
+                        <p className="text-[11px] font-bold text-white">🔥 Peak Hour Hero</p>
+                        <p className="text-[9px] text-gray-600">₹10 extra/order during rush</p>
+                      </div>
+                      <button onClick={togglePeakHour}
+                        className={`w-11 h-6 rounded-full flex items-center p-0.5 transition-all ${peakHourHero ? 'bg-amber-500 justify-end' : 'bg-gray-700 justify-start'}`}>
+                        <div className="w-5 h-5 bg-white rounded-full shadow" />
+                      </button>
+                    </div>
+
+                    {/* Rain Warrior Toggle */}
+                    <div className="flex items-center justify-between py-2.5">
+                      <div>
+                        <p className="text-[11px] font-bold text-white">🌧️ Rain Warrior</p>
+                        <p className="text-[9px] text-gray-600">₹10 extra/ride during rain</p>
+                      </div>
+                      <button onClick={toggleRainWarrior}
+                        className={`w-11 h-6 rounded-full flex items-center p-0.5 transition-all ${rainWarrior ? 'bg-cyan-500 justify-end' : 'bg-gray-700 justify-start'}`}>
+                        <div className="w-5 h-5 bg-white rounded-full shadow" />
+                      </button>
+                    </div>
+
+                    {(peakHourHero || rainWarrior) && (
+                      <p className="text-[9px] text-emerald-400 mt-2 font-bold">✓ Active incentives visible to all riders</p>
+                    )}
                   </div>
 
                   {/* Platform Info */}
